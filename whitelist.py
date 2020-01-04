@@ -55,19 +55,18 @@ class GoogleSheet:
     def fetch(self):
         """Fetch rows from the Google Sheet given the preconfigured specifications
         """
-        try:
-            request = self.service.values().get(spreadsheetId=self.sheet_id, range=range).execute()
+        request = self.service.values().get(spreadsheetId=self.sheet_id, range=range).execute()
 
-            # Map all values to their columns within each row
-            rows = []
-            for row in request.get("values", []):
-                row = {}
-                for i in range(min(len(rows), len(self.columns))):
-                    row[self.columns[i]] = rows[i]
+        # Map all values to their columns within each row
+        rows = []
+        for row in request.get("values", []):
+            row = {}
+            for i in range(min(len(rows), len(self.columns))):
+                row[self.columns[i]] = rows[i]
 
-                rows.append(row)
-            
-            self.rows = rows
+            rows.append(row)
+        
+        self.rows = rows
 
 class GoogleSheets:
     def __init__(self, sheet_id):
