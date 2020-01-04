@@ -1,2 +1,2 @@
 # whitelist
-Simple web app to allow users to whitelist themselves on a Minecraft server
+Simple script to allow self-whitelisting on a Minecraft server through Google Sheets
