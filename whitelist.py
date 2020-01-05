@@ -29,10 +29,15 @@ class UserList:
         
         :param key (string) The variable to index on
         :param value (string) The value to find
+        :return (tuple) A tuple containing the index of the found item (or -1 if nothing was found), and the found object or None
         """
-        for user in self.users:
+        for i in range(len(self.users)):
+            user = self.users[i]
+
             if key == "email" and user.email == value or key == "username" and user.username == value or key == "uuid" and user.uuid == value:
-                return user
+                return (i, user)
+
+        return (-1, None)
 
     @staticmethod
     def fromGoogleSheet(sheet):
@@ -170,8 +175,8 @@ def sync(local, gsheets):
     # For entries that are not on the remote banlist, look up any emails for the given username
     #       on the remote whitelist
     for ban in local_banlist.users:
-        user = remote_whitelist.search("username", ban.username)
-        if user:
+        row_number, user = remote_whitelist.search("username", ban.username)
+        if row_number != -1:
             ban.email = user.email
 
     log("⏳  Processing pending bans")
@@ -179,9 +184,10 @@ def sync(local, gsheets):
     # Remove the entries from the remote whitelist, and add them to the remote banlist
     # TODO Add expiration checks and store reasons
     for ban in local_banlist.users:
-        if remote_banlist.search("uuid", ban.uuid) is None:
-            # TODO Remove from remote whitelist
-            user = remote_whitelist.search("uuid", ban.uuid) # TODO Replace with function that removes and returns the row
+        if remote_banlist.search("uuid", ban.uuid)[0] == -1:
+            # Remove from remote whitelist
+            row_number, user = remote_whitelist.search("uuid", ban.uuid)
+            gsheets.sheets["whitelist"].delete(row_number + 1)
 
             # Append the entry to the remote banlist
             gsheets.sheets["banlist"].append([ ( user.email, user.username, user.uuid ) ])
