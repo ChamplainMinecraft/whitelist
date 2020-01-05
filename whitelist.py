@@ -268,7 +268,6 @@ def __main__():
         epilog="In order to connect to the remote sheet, a credentials.json file needs to be in the working directory or specified by the --credentials flag")
 
     # Command line arguments
-    # TODO Add minecraft folder as an argument and make files like whitelist and banned-players relative to it
     parser.add_argument("sheet_id", help="The ID of the Google sheet containing the whitelisted users", type=str)
     parser.add_argument("-d", "--minecraft-folder", help="The path to the Minecraft server folder, where the whitelist and banned players files are stored", required=True, type=str)
     parser.add_argument("-c", "--credentials", help="The path to the Google Service Account credentials file", default="credentials.json", type=str)
