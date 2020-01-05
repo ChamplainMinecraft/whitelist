@@ -34,6 +34,20 @@ class UserList:
             if key == "email" and user.email == value or key == "username" and user.username == value or key == "uuid" and user.uuid == value:
                 return user
 
+    @staticmethod
+    def fromGoogleSheet(sheet):
+        """Creates a userlist from a given list of rows from a Google Sheet
+
+        :param sheet (list) The Google Sheet containing rows of data in the format described later in this file
+        :returns (UserList) A UserList containing all users retrieved from the sheet
+        """
+        users = UserList()
+
+        for row in sheet.rows:
+            users.add(User(email=row["email"], username=row["username"], uuid=row["uuid"]))
+
+        return users
+
 class User:
     def __init__(self, email=None, username=None, uuid=None):
         self.email = email
@@ -145,16 +159,12 @@ def sync(local, gsheets):
     log(f"📊  Parsing remote banlist from range \"{gsheets.sheets['banlist'].range}\"")
 
     # Get the remote banlist
-    remote_banlist = UserList()
-    for ban in gsheets.sheets["banlist"].rows:
-        remote_banlist.add(User(email=ban["email"], username=ban["username"], uuid=ban["uuid"]))
+    remote_banlist = UserList.fromGoogleSheet(gsheets.sheets["banlist"])
 
     log(f"📊  Parsing remote whitelist from range \"{gsheets.sheets['whitelist'].range}\"")
 
     # Get the remote whitelist
-    remote_whitelist = UserList()
-    for user in gsheets.sheets["whitelist"].rows:
-        remote_whitelist.add(User(email=user["email"], username=user["username"], uuid=user["uuid"]))
+    remote_whitelist = UserList.fromGoogleSheet(gsheets.sheets["whitelist"])
 
     log("🔨  Resolving missing local ban data")
 
@@ -179,9 +189,7 @@ def sync(local, gsheets):
     log(f"📊  Parsing updated remote banlist from range \"{gsheets.sheets['banlist'].range}\"")
 
     # Fetch an updated remote banlist
-    remote_banlist = UserList()
-    for ban in gsheets.sheets["banlist"].fetch().rows:
-        remote_banlist.add(User(email=ban["email"], username=ban["username"], uuid=ban["uuid"]))
+    remote_banlist = UserList.fromGoogleSheet(gsheets.sheets["banlist"])
 
     log(f"⏳  Processing new whitelist requests from range \"{gsheets.sheets['requests'].range}\"")
 
@@ -200,10 +208,8 @@ def sync(local, gsheets):
     
     log(f"📊  Parsing updated remote whitelist from range \"{gsheets.sheets['whitelist'].range}\"")
 
-    # Fetch the remote whitelist and use it to update the local whitelist
-    remote_whitelist = UserList()
-    for user in gsheets.sheets["whitelist"].fetch().rows:
-        remote_whitelist.add(User(email=user["email"], username=user["username"], uuid=user["uuid"]))
+    # Fetch the updated remote whitelist and use it to update the local whitelist
+    remote_whitelist = UserList.fromGoogleSheet(gsheets.sheets["whitelist"])
 
     log("💾  Saving whitelist")
 
