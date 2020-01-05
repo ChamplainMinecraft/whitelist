@@ -54,10 +54,10 @@ class GoogleSheet:
 
         # Map all values to their columns within each row
         rows = []
-        for row in request.get("values", []):
+        for cells in request.get("values", []):
             row = {}
-            for i in range(min(len(rows), len(self.columns))):
-                row[self.columns[i]] = rows[i]
+            for i in range(min(len(cells), len(self.columns))):
+                row[self.columns[i]] = cells[i]
 
             rows.append(row)
         
