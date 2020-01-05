@@ -9,6 +9,8 @@ from googleapiclient.discovery import build
 from google.oauth2 import service_account
 from google.auth.transport.requests import Request
 
+import requests
+
 silent = False
 
 class UserList:
@@ -64,6 +66,15 @@ class GoogleSheet:
             rows.append(row)
         
         self.rows = rows
+
+        return self
+
+    def append(self, row):
+        """Append a row to the sheet
+
+        :param row (list) An array representing a row to add to the sheet
+        """
+        request = self.service.values().append(spreadsheetId=self.sheet_id, valueInputOption="USER_ENTERED", range=self.range, body={ "values": row }).execute()
 
 class GoogleSheets:
     def __init__(self, sheet_id):
@@ -157,8 +168,13 @@ def sync(local, gsheets):
     log("⏳  Processing pending bans")
 
     # Remove the entries from the remote whitelist, and add them to the remote banlist
-    # TODO Remove from remote whitelist
-    # TODO Add to the remote banlist
+    for ban in local_banlist.users:
+        if remote_banlist.search("uuid", ban.uuid) is None:
+            # TODO Remove from remote whitelist
+            user = remote_whitelist.search("uuid", ban.uuid) # TODO Replace with function that removes and returns the row
+
+            # Append the entry to the remote banlist
+            gsheets.sheets["banlist"].append([ ( user.email, user.username, user.uuid ) ])
 
     log(f"📊  Parsing updated remote banlist from range \"{gsheets.sheets['banlist'].range}\"")
 
@@ -170,11 +186,17 @@ def sync(local, gsheets):
     log(f"⏳  Processing new whitelist requests from range \"{gsheets.sheets['requests'].range}\"")
 
     # Get the remote requests
-    for response in gsheets.sheets["requests"].rows:
-        if remote_banlist.search("email", response["email"]) is None:
-            # TODO Resolve the UUID
-            # TODO Add to remote whitelist
-            pass
+    for request in gsheets.sheets["requests"].rows:
+        if remote_banlist.search("username", request["username"]) is None and remote_whitelist.search("username", request["username"]) is None:
+            # Resolve the UUID using the Minecraft API
+            response = requests.get(f"https://api.mojang.com/users/profiles/minecraft/{request['username']}")
+
+            if response.status_code == 200:
+                body = response.json()
+
+                # Add the user to the remote whitelist
+                user = User(email=request["email"], username=request["username"], uuid=body["id"])
+                gsheets.sheets["whitelist"].append([ ( user.email, user.username, user.uuid ) ])
     
     log(f"📊  Parsing updated remote whitelist from range \"{gsheets.sheets['whitelist'].range}\"")
 
@@ -185,7 +207,11 @@ def sync(local, gsheets):
 
     log("💾  Saving whitelist")
 
-    # TODO Save to local whitelist
+    temp_whitelist = []
+    for user in remote_whitelist.users:
+        temp_whitelist.append({ "uuid": user.uuid, "name": user.username })
+
+    json.dump(temp_whitelist, whitelist_file, indent=2)
 
     log("✅  Sync completed successfully")
 
