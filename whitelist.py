@@ -2,7 +2,7 @@
 from argparse import ArgumentParser, FileType
 import json
 import datetime
-import os.path
+import os
 
 import googleapiclient
 from googleapiclient.discovery import build
@@ -270,9 +270,10 @@ def __main__():
     # Command line arguments
     # TODO Add minecraft folder as an argument and make files like whitelist and banned-players relative to it
     parser.add_argument("sheet_id", help="The ID of the Google sheet containing the whitelisted users", type=str)
+    parser.add_argument("-d", "--minecraft-folder", help="The path to the Minecraft server folder, where the whitelist and banned players files are stored", required=True, type=str)
     parser.add_argument("-c", "--credentials", help="The path to the Google Service Account credentials file", default="credentials.json", type=str)
-    parser.add_argument("-w", "--whitelist", help="The path to the whitelist.json file", default="whitelist.json", type=FileType("r+"))
-    parser.add_argument("-b", "--banlist", help="The path to the banned-players.json file", default="banned-players.json", type=FileType("r+"))
+    parser.add_argument("-w", "--whitelist", help="The path to the whitelist.json file, relative to the Minecraft server folder", default="whitelist.json", type=str)
+    parser.add_argument("-b", "--banlist", help="The path to the banned-players.json file, relative to the Minecraft server folder", default="banned-players.json", type=str)
     parser.add_argument("--forms-sheet", help="The name of the form responses sheet in the spreadsheet", default="Whitelist Form Responses", type=str)
     parser.add_argument("--whitelist-sheet", help="The name of the whitelist sheet in the spreadsheet", default="Whitelist", type=str)
     parser.add_argument("--banlist-sheet", help="The name of the ban list sheet in the spreadsheet", default="Ban List", type=str)
@@ -309,6 +310,12 @@ def __main__():
     gsheets.store_sheet("banlist", args.banlist_sheet, ("A", "D"), [ "email", "username", "uuid" ])
 
     # Sync the whitelist
-    sync((args.banlist, args.whitelist), gsheets)
+    banlist_file = open(os.path.join(args.minecraft_folder, args.banlist), "r+")
+    whitelist_file = open(os.path.join(args.minecraft_folder, args.whitelist), "r+")
+
+    sync((banlist_file, whitelist_file), gsheets)
+
+    banlist_file.close()
+    whitelist_file.close()
 
 __main__()
