@@ -9,7 +9,7 @@ from googleapiclient.discovery import build
 from google.oauth2 import service_account
 from google.auth.transport.requests import Request
 
-verbose = False
+silent = False
 
 class UserList:
     def __init__(self):
@@ -74,12 +74,12 @@ class GoogleSheets:
         :param credential_file (string) The location of the service account credentials file
         """
         try:
-            log("Attempting to log in with service account credentials from credentials.json")
+            log("🔑  Attempting to log in with service account credentials from credentials.json")
             creds = service_account.Credentials.from_service_account_file(credential_file, scopes=[
                 "https://www.googleapis.com/auth/spreadsheets"
             ])
         except:
-            print("Failed to log in, did you specify a valid credentials.json file?")
+            raise IOError("🔒  Failed to log in, did you specify a valid credentials.json file?")
         
         # Set up a connection to the spreadsheet
         service = build("sheets", "v4", credentials=creds)
@@ -95,7 +95,7 @@ def log(message):
 
     :param message (string) The message to print
     """
-    if verbose:
+    if not silent:
         print(message)
 
 def sync(local, gsheets):
@@ -122,20 +122,28 @@ def sync(local, gsheets):
     # Extract the local file handles
     banlist_file, whitelist_file = local
 
+    log(f"📂  Parsing local banlist from {banlist_file.name}")
+
     # Get the local banlist
     local_banlist = UserList()
     for ban in json.loads(banlist_file.read()):
         local_banlist.add(User(username=ban["name"], uuid=ban["uuid"]))
+
+    log(f"📊  Parsing remote banlist from range \"{gsheets.sheets['banlist'].range}\"")
 
     # Get the remote banlist
     remote_banlist = UserList()
     for ban in gsheets.sheets["banlist"].rows:
         remote_banlist.add(User(email=ban["email"], username=ban["username"], uuid=ban["uuid"]))
 
+    log(f"📊  Parsing remote whitelist from range \"{gsheets.sheets['whitelist'].range}\"")
+
     # Get the remote whitelist
     remote_whitelist = UserList()
     for user in gsheets.sheets["whitelist"].rows:
         remote_whitelist.add(User(email=user["email"], username=user["username"], uuid=user["uuid"]))
+
+    log("🔨  Resolving missing local ban data")
 
     # For entries that are not on the remote banlist, look up any emails for the given username
     #       on the remote whitelist
@@ -143,13 +151,19 @@ def sync(local, gsheets):
         user = remote_whitelist.search("username", ban.username)
         if user:
             ban.email = user.email
-    
+
+    log("⏳  Processing pending bans")
+
     # Remove the entries from the remote whitelist, and add them to the remote banlist
-    # TODO Remote from remote whitelist
+    # TODO Remove from remote whitelist
     # TODO Add to the remote banlist
+
+    log(f"📊  Parsing updated remote banlist from range \"{gsheets.sheets['banlist'].range}\"")
 
     # Fetch an updated remote banlist
     gsheets.sheets["banlist"].fetch()
+
+    log(f"⏳  Processing new whitelist requests from range \"{gsheets.sheets['requests'].range}\"")
 
     # Get the remote requests
     for response in gsheets.sheets["requests"].rows:
@@ -158,9 +172,16 @@ def sync(local, gsheets):
             # TODO Add to remote whitelist
             pass
     
+    log(f"📊  Parsing updated remote whitelist from range \"{gsheets.sheets['whitelist'].range}\"")
+
     # Fetch the remote whitelist and use it to update the local whitelist
     gsheets.sheets["whitelist"].fetch()
+
+    log("💾  Saving whitelist")
+
     # TODO Save to local whitelist
+
+    log("✅  Sync completed successfully")
 
 def __main__():
     parser = ArgumentParser(
@@ -176,15 +197,13 @@ def __main__():
     parser.add_argument("--forms-sheet", help="The name of the form responses sheet in the spreadsheet", default="Whitelist Form Responses", type=str)
     parser.add_argument("--whitelist-sheet", help="The name of the whitelist sheet in the spreadsheet", default="Whitelist", type=str)
     parser.add_argument("--banlist-sheet", help="The name of the ban list sheet in the spreadsheet", default="Ban List", type=str)
-    parser.add_argument("-v", "--verbose", help="Show more verbose output", action="store_true")
+    parser.add_argument("-s", "--silent", help="Suppress script output", action="store_true")
 
     args = parser.parse_args()
 
     # Set program verbosity
-    global verbose
-    verbose = args.verbose
-    log("Running in verbose mode")
-    log(f"Arguments: {args}")
+    global silent
+    silent = args.silent
 
     # Login to the service account
     gsheets = GoogleSheets(args.sheet_id)
