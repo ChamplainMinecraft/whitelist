@@ -98,7 +98,8 @@ def log(message):
     if verbose:
         print(message)
 
-def sync(local, sheets):
+def sync(local, gsheets):
+    # TODO Add expiration checks and store reasons
     # Explanation of this madness:
     # Local banlist takes precedence over remote banlist (banning is performed via /ban)
     # Remote banlist takes precedence over remote whitelist (bans propagate to the whitelist)
@@ -128,12 +129,12 @@ def sync(local, sheets):
 
     # Get the remote banlist
     remote_banlist = UserList()
-    for ban in sheets.sheets["banlist"].rows:
+    for ban in gsheets.sheets["banlist"].rows:
         remote_banlist.add(User(email=ban["email"], username=ban["username"], uuid=ban["uuid"]))
 
     # Get the remote whitelist
     remote_whitelist = UserList()
-    for user in sheets.sheets["whitelist"].rows:
+    for user in gsheets.sheets["whitelist"].rows:
         remote_whitelist.add(User(email=user["email"], username=user["username"], uuid=user["uuid"]))
 
     # For entries that are not on the remote banlist, look up any emails for the given username
@@ -148,17 +149,17 @@ def sync(local, sheets):
     # TODO Add to the remote banlist
 
     # Fetch an updated remote banlist
-    sheets.sheets["banlist"].fetch()
+    gsheets.sheets["banlist"].fetch()
 
     # Get the remote requests
-    for response in sheets.sheets["requests"].rows:
-        if remote_banlist.search("email", response[1]) is None:
+    for response in gsheets.sheets["requests"].rows:
+        if remote_banlist.search("email", response["email"]) is None:
             # TODO Resolve the UUID
             # TODO Add to remote whitelist
             pass
     
     # Fetch the remote whitelist and use it to update the local whitelist
-    sheets.sheets["whitelist"].fetch()
+    gsheets.sheets["whitelist"].fetch()
     # TODO Save to local whitelist
 
 def __main__():
@@ -186,8 +187,8 @@ def __main__():
     log(f"Arguments: {args}")
 
     # Login to the service account
-    sheets = GoogleSheets(args.sheet_id)
-    sheets.login(args.credentials)
+    gsheets = GoogleSheets(args.sheet_id)
+    gsheets.login(args.credentials)
 
     # Data format of each source:
     # Local whitelist:
@@ -205,9 +206,9 @@ def __main__():
     # | Email address | Username | UUID |
 
     # Fetch the needed sheets
-    sheets.store_sheet("requests", f"{args.forms_sheet}!B1:C", [ "email", "username" ])
-    sheets.store_sheet("whitelist", f"{args.whitelist_sheet}!A1:C", [ "email", "username", "uuid" ])
-    sheets.store_sheet("banlist", f"{args.banlist_sheet}A1:D", [ "email", "username", "uuid" ])
+    gsheets.store_sheet("requests", f"{args.forms_sheet}!B2:C", [ "email", "username" ])
+    gsheets.store_sheet("whitelist", f"{args.whitelist_sheet}!A2:C", [ "email", "username", "uuid" ])
+    gsheets.store_sheet("banlist", f"{args.banlist_sheet}!A2:D", [ "email", "username", "uuid" ])
 
     # Sync the whitelist
     sync((args.banlist, args.whitelist), gsheets)
