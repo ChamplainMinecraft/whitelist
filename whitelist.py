@@ -50,7 +50,7 @@ class GoogleSheet:
     def fetch(self):
         """Fetch rows from the Google Sheet given the preconfigured specifications
         """
-        request = self.service.values().get(spreadsheetId=self.sheet_id, range=range).execute()
+        request = self.service.values().get(spreadsheetId=self.sheet_id, range=self.range).execute()
 
         # Map all values to their columns within each row
         rows = []
