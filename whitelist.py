@@ -102,7 +102,21 @@ class GoogleSheet:
 
         :param row (list) An array representing a row to add to the sheet
         """
-        request = self.service.values().append(spreadsheetId=self.sheet_id, valueInputOption="USER_ENTERED", range=self.range, body={ "values": row }).execute()
+        cell_range = f"{self.sheet_name}!{self.range_start}:{self.range_end}"
+        body = {
+            "values": row
+        }
+        self.service.values().append(spreadsheetId=self.sheet_id, valueInputOption="USER_ENTERED", range=cell_range, body=body).execute()
+
+    def delete(self, row_number):
+        """Delete a row from the sheet
+
+        :param row_number (int) The number of the row to delete (0-indexed)
+        """
+        row_number += 1 # Converts to 1-indexed
+
+        cell_range = f"{self.sheet_name}!{self.range_start}{row_number}:{self.range_end}{row_number}"
+        self.service.values().clear(spreadsheetId=self.sheet_id, range=cell_range).execute()
 
 class GoogleSheets:
     def __init__(self, sheet_id):
@@ -127,9 +141,20 @@ class GoogleSheets:
         self.service = service.spreadsheets()
 
         return creds
-    
-    def store_sheet(self, name, cell_range, columns):
-        self.sheets[name] = GoogleSheet(self.service, self.sheet_id, cell_range, columns)
+
+    def store_sheet(self, internal_name, sheet_name, cell_range, columns):
+        """Creates, fetches, and stores a GoogleSheet
+
+        :param internal_name (string) The internal name to store the sheet under
+        :param sheet_name (string) The identifier for the specific sheet in Google Sheets
+        :param cell_range (tuple) The start and end columns for the table
+        :param columns (list) A list of column headers to be mapped to each row's columns
+        :return (GoogleSheet) The created GoogleSheet object
+        """
+        sheet = GoogleSheet(self.service, self.sheet_id, sheet_name, cell_range, columns)
+
+        self.sheets[internal_name] = sheet
+        return sheet
 
 def log(message):
     """Log the given message if the verbosity is high enough
@@ -243,6 +268,7 @@ def __main__():
         epilog="In order to connect to the remote sheet, a credentials.json file needs to be in the working directory or specified by the --credentials flag")
 
     # Command line arguments
+    # TODO Add minecraft folder as an argument and make files like whitelist and banned-players relative to it
     parser.add_argument("sheet_id", help="The ID of the Google sheet containing the whitelisted users", type=str)
     parser.add_argument("-c", "--credentials", help="The path to the Google Service Account credentials file", default="credentials.json", type=str)
     parser.add_argument("-w", "--whitelist", help="The path to the whitelist.json file", default="whitelist.json", type=FileType("r+"))
