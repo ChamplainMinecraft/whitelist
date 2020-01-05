@@ -59,6 +59,13 @@ class User:
         self.username = username
         self.uuid = uuid
 
+    def toTuple(self):
+        """Returns a tuple representation of the User
+
+        :return (tuple) The tuple representation, in the format (email, username, uuid)
+        """
+        return ( self.email, self.username, self.uuid )
+
 class GoogleSheet:
     def __init__(self, service, sheet_id, cell_range, columns):
         self.service = service
@@ -190,7 +197,7 @@ def sync(local, gsheets):
             gsheets.sheets["whitelist"].delete(row_number + 1)
 
             # Append the entry to the remote banlist
-            gsheets.sheets["banlist"].append([ ( user.email, user.username, user.uuid ) ])
+            gsheets.sheets["banlist"].append([ user.toTuple() ])
 
     log(f"📊  Parsing updated remote banlist from range \"{gsheets.sheets['banlist'].range}\"")
 
@@ -210,7 +217,7 @@ def sync(local, gsheets):
 
                 # Add the user to the remote whitelist
                 user = User(email=request["email"], username=request["username"], uuid=body["id"])
-                gsheets.sheets["whitelist"].append([ ( user.email, user.username, user.uuid ) ])
+                gsheets.sheets["whitelist"].append([ user.toTuple() ])
     
     log(f"📊  Parsing updated remote whitelist from range \"{gsheets.sheets['whitelist'].range}\"")
 
