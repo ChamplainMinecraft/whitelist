@@ -126,7 +126,6 @@ def log(message):
         print(message)
 
 def sync(local, gsheets):
-    # TODO Add expiration checks and store reasons
     # Explanation of this madness:
     # Local banlist takes precedence over remote banlist (banning is performed via /ban)
     # Remote banlist takes precedence over remote whitelist (bans propagate to the whitelist)
@@ -178,6 +177,7 @@ def sync(local, gsheets):
     log("⏳  Processing pending bans")
 
     # Remove the entries from the remote whitelist, and add them to the remote banlist
+    # TODO Add expiration checks and store reasons
     for ban in local_banlist.users:
         if remote_banlist.search("uuid", ban.uuid) is None:
             # TODO Remove from remote whitelist
