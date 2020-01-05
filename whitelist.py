@@ -38,11 +38,6 @@ class User:
         self.username = username
         self.uuid = uuid
 
-class Local:
-    def __init__(self, banlist_file, whitelist_file):
-        self.banlist = banlist_file
-        self.whitelist = whitelist_file
-
 class GoogleSheet:
     def __init__(self, service, sheet_id, cell_range, columns):
         self.service = service
@@ -123,9 +118,12 @@ def sync(local, sheets):
     # Otherwise, add the user to the remote whitelist
     # Fetch the remote whitelist and use it to update the local whitelist
     
+    # Extract the local file handles
+    banlist_file, whitelist_file = local
+
     # Get the local banlist
     local_banlist = UserList()
-    for ban in json.loads(local.banlist.read()):
+    for ban in json.loads(banlist_file.read()):
         local_banlist.add(User(username=ban["name"], uuid=ban["uuid"]))
 
     # Get the remote banlist
@@ -172,8 +170,8 @@ def __main__():
     # Command line arguments
     parser.add_argument("sheet_id", help="The ID of the Google sheet containing the whitelisted users", type=str)
     parser.add_argument("-c", "--credentials", help="The path to the Google Service Account credentials file", default="credentials.json", type=str)
-    parser.add_argument("-w", "--whitelist", help="The path to the whitelist.json file", default="whitelist.json", type=FileType("w"))
-    parser.add_argument("-b", "--banlist", help="The path to the banned-players.json file", default="banned-players.json", type=FileType("w"))
+    parser.add_argument("-w", "--whitelist", help="The path to the whitelist.json file", default="whitelist.json", type=FileType("r+"))
+    parser.add_argument("-b", "--banlist", help="The path to the banned-players.json file", default="banned-players.json", type=FileType("r+"))
     parser.add_argument("--forms-sheet", help="The name of the form responses sheet in the spreadsheet", default="Whitelist Form Responses", type=str)
     parser.add_argument("--whitelist-sheet", help="The name of the whitelist sheet in the spreadsheet", default="Whitelist", type=str)
     parser.add_argument("--banlist-sheet", help="The name of the ban list sheet in the spreadsheet", default="Ban List", type=str)
@@ -186,9 +184,6 @@ def __main__():
     verbose = args.verbose
     log("Running in verbose mode")
     log(f"Arguments: {args}")
-
-    # Open local files
-    local_files = Local(args.banlist, args.whitelist)
 
     # Login to the service account
     sheets = GoogleSheets(args.sheet_id)
@@ -215,6 +210,6 @@ def __main__():
     sheets.store_sheet("banlist", f"{args.banlist_sheet}A1:D", [ "email", "username", "uuid" ])
 
     # Sync the whitelist
-    sync(local_files, sheets)
+    sync((args.banlist, args.whitelist), gsheets)
 
 __main__()
