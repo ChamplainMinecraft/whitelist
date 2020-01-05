@@ -29,7 +29,7 @@ class UserList:
         :param value (string) The value to find
         """
         for user in self.users:
-            if user[key] == value:
+            if key == "email" and user.email == value or key == "username" and user.username == value or key == "uuid" and user.uuid == value:
                 return user
 
 class User:
@@ -49,6 +49,8 @@ class GoogleSheet:
 
     def fetch(self):
         """Fetch rows from the Google Sheet given the preconfigured specifications
+
+        :returns (GoogleSheet) After fetching, returns self
         """
         request = self.service.values().get(spreadsheetId=self.sheet_id, range=self.range).execute()
 
@@ -161,7 +163,9 @@ def sync(local, gsheets):
     log(f"📊  Parsing updated remote banlist from range \"{gsheets.sheets['banlist'].range}\"")
 
     # Fetch an updated remote banlist
-    gsheets.sheets["banlist"].fetch()
+    remote_banlist = UserList()
+    for ban in gsheets.sheets["banlist"].fetch().rows:
+        remote_banlist.add(User(email=ban["email"], username=ban["username"], uuid=ban["uuid"]))
 
     log(f"⏳  Processing new whitelist requests from range \"{gsheets.sheets['requests'].range}\"")
 
@@ -175,7 +179,9 @@ def sync(local, gsheets):
     log(f"📊  Parsing updated remote whitelist from range \"{gsheets.sheets['whitelist'].range}\"")
 
     # Fetch the remote whitelist and use it to update the local whitelist
-    gsheets.sheets["whitelist"].fetch()
+    remote_whitelist = UserList()
+    for user in gsheets.sheets["whitelist"].fetch().rows:
+        remote_whitelist.add(User(email=user["email"], username=user["username"], uuid=user["uuid"]))
 
     log("💾  Saving whitelist")
 
