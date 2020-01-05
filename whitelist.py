@@ -199,7 +199,7 @@ def sync(local, gsheets):
     # Get the remote banlist
     remote_banlist = UserList.fromGoogleSheet(gsheets.sheets["banlist"])
 
-    log(f"📊  Parsing remote whitelist from range \"{gsheets.sheets['whitelist'].sheet_name}\"")
+    log(f"📊  Parsing remote whitelist from sheet \"{gsheets.sheets['whitelist'].sheet_name}\"")
 
     # Get the remote whitelist
     remote_whitelist = UserList.fromGoogleSheet(gsheets.sheets["whitelist"])
@@ -226,12 +226,12 @@ def sync(local, gsheets):
             # Append the entry to the remote banlist
             gsheets.sheets["banlist"].append([ user.toTuple() ])
 
-    log(f"📊  Parsing updated remote banlist from range \"{gsheets.sheets['banlist'].sheet_name}\"")
+    log(f"📊  Parsing updated remote banlist from sheet \"{gsheets.sheets['banlist'].sheet_name}\"")
 
     # Fetch an updated remote banlist
     remote_banlist = UserList.fromGoogleSheet(gsheets.sheets["banlist"])
 
-    log(f"⏳  Processing new whitelist requests from range \"{gsheets.sheets['requests'].sheet_name}\"")
+    log(f"⏳  Processing new whitelist requests from sheet \"{gsheets.sheets['requests'].sheet_name}\"")
 
     # Get the remote requests
     for request in gsheets.sheets["requests"].rows:
@@ -246,7 +246,7 @@ def sync(local, gsheets):
                 user = User(email=request["email"], username=request["username"], uuid=body["id"])
                 gsheets.sheets["whitelist"].append([ user.toTuple() ])
     
-    log(f"📊  Parsing updated remote whitelist from range \"{gsheets.sheets['whitelist'].sheet_name}\"")
+    log(f"📊  Parsing updated remote whitelist from sheet \"{gsheets.sheets['whitelist'].sheet_name}\"")
 
     # Fetch the updated remote whitelist and use it to update the local whitelist
     remote_whitelist = UserList.fromGoogleSheet(gsheets.sheets["whitelist"])
