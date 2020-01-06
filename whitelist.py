@@ -334,8 +334,8 @@ def __main__():
     gsheets.store_sheet("banlist", args.banlist_sheet, ("A", "D"), [ "email", "username", "uuid" ])
 
     # Sync the whitelist
-    banlist_file = open(os.path.join(args.minecraft_folder, args.banlist), "r+")
-    whitelist_file = open(os.path.join(args.minecraft_folder, args.whitelist), "r+")
+    banlist_file = open(os.path.join(args.minecraft_folder, args.banlist), "r")
+    whitelist_file = open(os.path.join(args.minecraft_folder, args.whitelist), "w+")
 
     sync((banlist_file, whitelist_file), gsheets)
 
