@@ -16,13 +16,15 @@ silent = False
 class UserList:
     def __init__(self):
         self.users = []
+        self.index = 0
     
-    def add(self, user):
+    def add(self, user, index=None):
         """Add a User to the list
 
         :param user (User) The User object to add
         """
-        self.users.append(user)
+        self.users.append((index or self.index, user))
+        self.index += 1
     
     def search(self, key, value):
         """Search for a user in the list given a variable to index on and the value to find
@@ -31,10 +33,8 @@ class UserList:
         :param value (string) The value to find
         :return (tuple) A tuple containing the index of the found item (or -1 if nothing was found), and the found object or None
         """
-        for i in range(len(self.users)):
-            user = self.users[i]
-
-            if key == "email" and user.email == value or key == "username" and user.username == value or key == "uuid" and user.uuid == value:
+        for i, user in self.users:
+            if user is not None and key == "email" and user.email == value or key == "username" and user.username == value or key == "uuid" and user.uuid == value:
                 return (i, user)
 
         return (-1, None)
@@ -48,8 +48,9 @@ class UserList:
         """
         users = UserList()
 
-        for row in sheet.rows:
-            users.add(User(email=row["email"], username=row["username"], uuid=row["uuid"]))
+        for i, row in enumerate(sheet.rows):
+            if row is not None:
+                users.add(User(email=row["email"], username=row["username"], uuid=row["uuid"]), index=i)
 
         return users
 
@@ -90,6 +91,9 @@ class GoogleSheet:
             row = {}
             for i in range(min(len(cells), len(self.columns))):
                 row[self.columns[i]] = cells[i]
+
+            if row == {}:
+                row = None
 
             rows.append(row)
         
@@ -208,7 +212,7 @@ def sync(local, gsheets):
 
     # For entries that are not on the remote banlist, look up any emails for the given username
     #       on the remote whitelist
-    for ban in local_banlist.users:
+    for _, ban in local_banlist.users:
         row_number, user = remote_whitelist.search("username", ban.username)
         if row_number != -1:
             ban.email = user.email
@@ -217,25 +221,41 @@ def sync(local, gsheets):
 
     # Remove the entries from the remote whitelist, and add them to the remote banlist
     # TODO Add expiration checks and store reasons
-    for ban in local_banlist.users:
+    banlist_additions = []
+    for _, ban in local_banlist.users:
         if remote_banlist.search("uuid", ban.uuid)[0] == -1:
-            # Remove from remote whitelist
-            row_number, user = remote_whitelist.search("uuid", ban.uuid)
-            gsheets.sheets["whitelist"].delete(row_number + 1)
+            # Get the email for the given UUID
+            _, reference_user = remote_whitelist.search("uuid", ban.uuid)
 
-            # Append the entry to the remote banlist
-            gsheets.sheets["banlist"].append([ user.toTuple() ])
+            # Ban all accounts added by a user
+            while(True):
+                row_number, user = remote_whitelist.search("email", reference_user.email)
+
+                if row_number != -1:
+                    gsheets.sheets["whitelist"].delete(row_number + 1)
+
+                    # Append the entry to the remote banlist
+                    banlist_additions.append(user.toTuple())
+
+                    # Update the sheet so we don't keep getting the same entry over and over again when we search
+                    remote_whitelist = UserList.fromGoogleSheet(gsheets.sheets["whitelist"].fetch())
+                else:
+                    break
+
+    if len(banlist_additions) > 0:
+        gsheets.sheets["banlist"].append(banlist_additions)
 
     log(f"📊  Parsing updated remote banlist from sheet \"{gsheets.sheets['banlist'].sheet_name}\"")
 
     # Fetch an updated remote banlist
-    remote_banlist = UserList.fromGoogleSheet(gsheets.sheets["banlist"])
+    remote_banlist = UserList.fromGoogleSheet(gsheets.sheets["banlist"].fetch())
 
     log(f"⏳  Processing new whitelist requests from sheet \"{gsheets.sheets['requests'].sheet_name}\"")
 
     # Get the remote requests
+    whitelist_additions = []
     for request in gsheets.sheets["requests"].rows:
-        if remote_banlist.search("username", request["username"]) is None and remote_whitelist.search("username", request["username"]) is None:
+        if remote_banlist.search("username", request["username"])[0] == -1 and remote_whitelist.search("username", request["username"])[0] == -1:
             # Resolve the UUID using the Minecraft API
             response = requests.get(f"https://api.mojang.com/users/profiles/minecraft/{request['username']}")
 
@@ -244,17 +264,22 @@ def sync(local, gsheets):
 
                 # Add the user to the remote whitelist
                 user = User(email=request["email"], username=request["username"], uuid=body["id"])
-                gsheets.sheets["whitelist"].append([ user.toTuple() ])
+                whitelist_additions.append(user.toTuple())
+            elif response.status_code >= 500:
+                log("❗❗  Mojang API error")
+
+    if len(whitelist_additions) > 0:
+        gsheets.sheets["whitelist"].append(whitelist_additions)
     
     log(f"📊  Parsing updated remote whitelist from sheet \"{gsheets.sheets['whitelist'].sheet_name}\"")
 
     # Fetch the updated remote whitelist and use it to update the local whitelist
-    remote_whitelist = UserList.fromGoogleSheet(gsheets.sheets["whitelist"])
+    remote_whitelist = UserList.fromGoogleSheet(gsheets.sheets["whitelist"].fetch())
 
     log("💾  Saving whitelist")
 
     temp_whitelist = []
-    for user in remote_whitelist.users:
+    for _, user in remote_whitelist.users:
         temp_whitelist.append({ "uuid": user.uuid, "name": user.username })
 
     json.dump(temp_whitelist, whitelist_file, indent=2)
