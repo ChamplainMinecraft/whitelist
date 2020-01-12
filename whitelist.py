@@ -3,6 +3,7 @@ from argparse import ArgumentParser, FileType
 import json
 import datetime
 import os
+from uuid import UUID
 
 import googleapiclient
 from googleapiclient.discovery import build
@@ -50,7 +51,7 @@ class UserList:
 
         for i, row in enumerate(sheet.rows):
             if row is not None:
-                users.add(User(email=row["email"], username=row["username"], uuid=row["uuid"]), index=i)
+                users.add(User(email=row["email"], username=row["username"], uuid=UUID(row["uuid"])), index=i)
 
         return users
 
@@ -196,7 +197,7 @@ def sync(local, gsheets):
     # Get the local banlist
     local_banlist = UserList()
     for ban in json.loads(banlist_file.read()):
-        local_banlist.add(User(username=ban["name"], uuid=ban["uuid"]))
+        local_banlist.add(User(username=ban["name"], uuid=UUID(ban["uuid"])))
 
     log(f"📊  Parsing remote banlist from sheet \"{gsheets.sheets['banlist'].sheet_name}\"")
 
@@ -263,7 +264,7 @@ def sync(local, gsheets):
                 body = response.json()
 
                 # Add the user to the remote whitelist
-                user = User(email=request["email"], username=request["username"], uuid=body["id"])
+                user = User(email=request["email"], username=request["username"], uuid=UUID(body["id"]))
                 whitelist_additions.append(user.toTuple())
             elif response.status_code >= 500:
                 log("❗❗  Mojang API error")
@@ -280,7 +281,7 @@ def sync(local, gsheets):
 
     temp_whitelist = []
     for _, user in remote_whitelist.users:
-        temp_whitelist.append({ "uuid": user.uuid, "name": user.username })
+        temp_whitelist.append({ "uuid": str(user.uuid), "name": user.username })
 
     json.dump(temp_whitelist, whitelist_file, indent=2)
 
