@@ -66,7 +66,7 @@ class User:
 
         :return (tuple) The tuple representation, in the format (email, username, uuid)
         """
-        return ( self.email, self.username, self.uuid )
+        return ( self.email, self.username, str(self.uuid) )
 
 class GoogleSheet:
     def __init__(self, service, sheet_id, sheet_name, cell_range, columns):
@@ -226,22 +226,23 @@ def sync(local, gsheets):
     for _, ban in local_banlist.users:
         if remote_banlist.search("uuid", ban.uuid)[0] == -1:
             # Get the email for the given UUID
-            _, reference_user = remote_whitelist.search("uuid", ban.uuid)
+            row_number, reference_user = remote_whitelist.search("uuid", ban.uuid)
 
             # Ban all accounts added by a user
-            while(True):
-                row_number, user = remote_whitelist.search("email", reference_user.email)
+            if row_number != -1:
+                while(True):
+                    row_number, user = remote_whitelist.search("email", reference_user.email)
 
-                if row_number != -1:
-                    gsheets.sheets["whitelist"].delete(row_number + 1)
+                    if row_number != -1:
+                        gsheets.sheets["whitelist"].delete(row_number + 1)
 
-                    # Append the entry to the remote banlist
-                    banlist_additions.append(user.toTuple())
+                        # Append the entry to the remote banlist
+                        banlist_additions.append(user.toTuple())
 
-                    # Update the sheet so we don't keep getting the same entry over and over again when we search
-                    remote_whitelist = UserList.fromGoogleSheet(gsheets.sheets["whitelist"].fetch())
-                else:
-                    break
+                        # Update the sheet so we don't keep getting the same entry over and over again when we search
+                        remote_whitelist = UserList.fromGoogleSheet(gsheets.sheets["whitelist"].fetch())
+                    else:
+                        break
 
     if len(banlist_additions) > 0:
         gsheets.sheets["banlist"].append(banlist_additions)
@@ -281,7 +282,8 @@ def sync(local, gsheets):
 
     temp_whitelist = []
     for _, user in remote_whitelist.users:
-        temp_whitelist.append({ "uuid": str(user.uuid), "name": user.username })
+        _, username, user_id = user.toTuple()
+        temp_whitelist.append({ "uuid": user_id, "name": username })
 
     json.dump(temp_whitelist, whitelist_file, indent=2)
 
